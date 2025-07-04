@@ -18,7 +18,9 @@ def train(section_id, experiment, data_type, save_model_path, path1):
     torch.backends.cudnn.benchmark = True
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
-    adata, image_path = get_sectionData(section_id)
+    # HER2ST change integration:
+    
+    # adata, image_path = get_sectionData(section_id)
     if experiment == "recovery":
         (exp_data_sample, exp_data_ori, adata_sample, image_features_sample, image_features_ori, spot_coord_sample,
          spot_coord_ori, image_spatial_sample, image_spatial_ori, used_gene) = get_trainData(adata, image_path,

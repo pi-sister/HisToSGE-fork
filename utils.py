@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
+import scprep as scp
+import anndata as ann
 
 import scipy.sparse as sp
 from scipy.stats import pearsonr
@@ -462,3 +464,58 @@ def get_most_frequent(x):
     # return the most frequent element in array
     uniqs, counts = np.unique(x, return_counts=True)
     return uniqs[counts.argmax()]
+
+
+def build_adata(name='H1', return_im=True, image_format='npy'):
+    """
+    Constructs an AnnData object from spatial transcriptomics data. It loads count data, image files, 
+    and spatial coordinates, processes the data, and returns an AnnData object along with the corresponding image. 
+    """ 
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    cnt_dir = '../../data/her2st/data/ST-cnts'
+    img_dir = '../../data/her2st/data/ST-imgs'
+    pos_dir = '../../data/her2st/data/ST-spotfiles'
+    g_list_dir = 'data/her_hvg_cut_1000.npy'
+    cnt_dir = os.path.join(base_path, cnt_dir)
+    img_dir = os.path.join(base_path, img_dir)
+    pos_dir = os.path.join(base_path, pos_dir)
+    g_list_dir = os.path.join(base_path, g_list_dir)
+
+    pre = img_dir+'/'+name[0]+'/'+name
+    fig_name = os.listdir(pre)[0]
+    path = pre+'/'+fig_name
+    im = Image.open(path)
+
+    path = cnt_dir+'/'+name+'.tsv'
+    cnt = pd.read_csv(path,sep='\t',index_col=0)
+
+    path = pos_dir+'/'+name+'_selection.tsv'
+    df = pd.read_csv(path,sep='\t')
+
+    x = df['x'].values
+    y = df['y'].values
+    id = []
+    for i in range(len(x)):
+        id.append(str(x[i])+'x'+str(y[i])) 
+    df['id'] = id
+
+    meta = cnt.join((df.set_index('id')))
+
+    # gene_list = list(np.load('data/her_g_list.npy'))
+    gene_list = list(np.load(g_list_dir,allow_pickle=True))
+    adata = ann.AnnData(scp.transform.log(scp.normalize.library_size_normalize(meta[gene_list].values)))
+    adata.var_names = gene_list
+    adata.obsm['spatial'] = np.floor(meta[['pixel_x','pixel_y']].values).astype(int)
+
+    if return_im:
+        if image_format == 'npy':
+            im = np.load(path.replace('.tsv','.npy'))
+        elif image_format == 'tiff':
+            im = read_tiff(path.replace('.tsv','.tiff'))
+        else:
+            raise ValueError("Unsupported image format. Use 'npy' or 'tiff'.")
+        return adata, im
+    else:
+        return adata
+
+
